@@ -1,7 +1,6 @@
-process.MICRONAME = "APIGW-ARACNIDA";
+process.MICRONAME = "ADAPTER-SNOWFLAKE";
+import SnowFlake from "./backends/SnowFlake.mjs";
 import expressApp from "./services/expressApp.mjs";
-import schedulerTemplate from "./services/schedulerTemplate.mjs";
-import suscripcionRabbit from "./services/suscripcionRabbit.mjs";
 import logger from "./utils/logger.mjs";
 
 const main = async () => {
@@ -9,24 +8,21 @@ const main = async () => {
 	await expressApp({
 		puerto: parseInt(process.env.EXPRESS_PORT, 10) || 3000,
 		parsers: {
-			raw: {
+			json: {
 				activo: true,
-				opciones: {
-					inflate: true,
-					limit: "1mb",
-					type: "*/*",
-				},
+				opciones: { limit: "1mb" },
 			},
 		},
 	});
 
 	try {
-		await suscripcionRabbit();
+		let resultado = await SnowFlake.ejecutarSentencia({
+			sql: `INSERT INTO "DB_HEFAME_EDWH_PRO"."CONSULTAS_STOCK"."FEDICOM2" (fecha) VALUES (:1)}`,
+			binds: ["2020-03-23T13:45:56.000Z"],
+		});
 	} catch (error) {
-		logger.fatal("Error al suscribirse al servicio Rabbit:", error);
+		logger.error("Error al llamar a SnowFlake", error);
 	}
-
-	schedulerTemplate();
 };
 
 main().catch((error) => {
