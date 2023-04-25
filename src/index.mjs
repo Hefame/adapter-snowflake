@@ -21,7 +21,7 @@ const main = async () => {
 			binds: ["2020-03-23T13:45:56.000Z"],
 		});
 	} catch (error) {
-		logger.error("Error al llamar a SnowFlake", error);
+		logger.error(`Error al llamar a SnowFlake: ${error.message}`);
 	}
 };
 

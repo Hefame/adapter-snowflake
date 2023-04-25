@@ -29,10 +29,10 @@ class SnowFlake {
 				log(`Conectando con la cuenta SnowFlake`);
 				cliente.connect((error, conn) => {
 					if (error) {
-                        log(`Ocurrió un error durante la conexión: ${error.message}`);
+						log(`Ocurrió un error durante la conexión: ${error.message}`);
 						reject(error);
 					} else {
-                        log(`Conexión establecida`);
+						log(`Conexión establecida`);
 						SnowFlake.#conexion = conn;
 						resolve(SnowFlake.#conexion);
 					}
@@ -45,22 +45,26 @@ class SnowFlake {
 
 	static async ejecutarSentencia({ sql, variables }) {
 		return new Promise(async (resolve, reject) => {
-			const connection = await SnowFlake.#getConnection();
-			connection.execute({
-				sqlText: sql,
-				binds: variables,
-				complete: (error, stmt, rows) => {
-					if (error) {
-						log(`La ejecución falló: ${error.message}`);
-						reject(error);
-					} else {
-						resolve(rows);
-					}
-				},
-			});
+			try {
+				const connection = await SnowFlake.#getConnection();
+				connection.execute({
+					sqlText: sql,
+					binds: variables,
+					complete: (error, stmt, rows) => {
+						if (error) {
+							log(`La ejecución falló: ${error.message}`);
+							reject(error);
+						} else {
+							resolve(rows);
+						}
+					},
+				});
+			} catch (error) {
+				reject(error);
+			}
 		});
 	}
-/*
+	/*
 	static async initializeTable(options) {
 		const { recreate } = options;
 
