@@ -43,13 +43,13 @@ class SnowFlake {
 		});
 	}
 
-	static async ejecutarSentencia({ sql, variables }) {
+	static async ejecutarSentencia({ sql, binds }) {
 		return new Promise(async (resolve, reject) => {
 			try {
 				const connection = await SnowFlake.#getConnection();
 				connection.execute({
 					sqlText: sql,
-					binds: variables,
+					binds: binds || [],
 					complete: (error, stmt, rows) => {
 						if (error) {
 							log(`La ejecución falló: ${error.message}`);
@@ -64,6 +64,55 @@ class SnowFlake {
 			}
 		});
 	}
+
+	static async cargarFichero() {
+
+		logger.debug(
+			await SnowFlake.ejecutarSentencia({
+				sql: "TRUNCATE TABLE HEFAME_PRO.SH_STAGING.TB_STG_CATALOGOS",
+			})
+		);
+
+		logger.debug(
+			await SnowFlake.ejecutarSentencia({
+				sql: "LIST @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS",
+			})
+		);
+
+		logger.debug(
+			await SnowFlake.ejecutarSentencia({
+				sql: `PUT file://./sampledata.json @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS
+						AUTO_COMPRESS = TRUE
+						OVERWRITE = TRUE`,
+			})
+		);
+
+		logger.debug(
+			await SnowFlake.ejecutarSentencia({
+				sql: "LIST @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS",
+			})
+		);
+
+		logger.debug(
+			await SnowFlake.ejecutarSentencia({
+				sql: `COPY INTO HEFAME_PRO.SH_STAGING.TB_STG_CATALOGOS 
+						FROM @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS/sampledata.json.gz 
+						FILE_FORMAT = ( TYPE = 'JSON' STRIP_OUTER_ARRAY = TRUE ) 
+						MATCH_BY_COLUMN_NAME = 'CASE_INSENSITIVE' 
+						PURGE = TRUE`,
+			})
+		);
+
+		logger.debug(
+			await SnowFlake.ejecutarSentencia({
+				sql: "LIST @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS",
+			})
+		);
+
+
+		return null;
+	}
+
 	/*
 	static async initializeTable(options) {
 		const { recreate } = options;

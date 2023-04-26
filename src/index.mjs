@@ -15,14 +15,26 @@ const main = async () => {
 		},
 	});
 
+
 	try {
-		let resultado = await SnowFlake.ejecutarSentencia({
-			sql: `INSERT INTO "DB_HEFAME_EDWH_PRO"."CONSULTAS_STOCK"."FEDICOM2" (fecha) VALUES (:1)}`,
-			binds: ["2020-03-23T13:45:56.000Z"],
-		});
+		let resultado = await SnowFlake.cargarFichero();
+		logger.debug(resultado);
 	} catch (error) {
 		logger.error(`Error al llamar a SnowFlake: ${error.message}`);
 	}
+
+	/*
+	try {
+		let resultado = await SnowFlake.ejecutarSentencia({
+			sql: `INSERT INTO "HEFAME_PRO"."SH_STAGING"."TB_STG_CATALOGOS" (ID, PRICE, COMPETENCE, DATE) VALUES (:1, :2, :3, :4)`,
+			binds: ["000017", 58.78, "BIDAFARMA", "2023-04-24"],
+		});
+
+		
+		logger.debug(resultado);
+	} catch (error) {
+		logger.error(`Error al llamar a SnowFlake: ${error.message}`);
+	}*/
 };
 
 main().catch((error) => {
