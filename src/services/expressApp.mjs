@@ -34,6 +34,7 @@ const expressApp = async (opciones) => {
 		app.use(async (errorExpress, req, res, next) => {
 			if (errorExpress) {
 				const error = HError.from(errorExpress, 400);
+				logger.warn(`Error al tratar la petición : ${errorExpress.message}`);
 				return error.express(res);
 			}
 			next();

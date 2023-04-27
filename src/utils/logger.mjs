@@ -2,6 +2,8 @@ import winston from "winston";
 import "winston-daily-rotate-file";
 import expressWinston from "express-winston";
 
+const isDevelopment = (process.env.NODE_ENV || "development") !== "production";
+
 // Define your severity levels.
 // With them, You can create log files,
 // see or hide levels based on the running ENV.
@@ -12,12 +14,13 @@ export const levels = {
 	info: 3,
 	http: 4,
 	debug: 5,
-	mongodb: 6,
-	mariadb: 6,
-	rabbit: 6,
-	axios: 6,
-	sched: 6,
-	snowflake: 6,
+	mongodb: 10,
+	mariadb: 11,
+	rabbit: 12,
+	axios: 13,
+	sched: 14,
+	snowflake: 15,
+	trace: 100,
 	all: 1000,
 };
 
@@ -26,9 +29,7 @@ export const levels = {
 // if the server was run in development mode; otherwise,
 // if it was run in production, show only warn and error messages.
 export const level = () => {
-	const env = process.env.NODE_ENV || "development";
-	const isDevelopment = env === "development";
-	return isDevelopment ? "all" : "warn";
+	return isDevelopment ? "all" : "trace";
 };
 
 // Define different colors for each level.
@@ -48,29 +49,43 @@ export const colors = {
 	sched: "italic white",
 	snowflake: "italic white",
 	axios: "italic white",
+	trace: "italic cyan",
 };
 
 winston.addColors(colors);
 
-// Define which transports the logger must use to print out messages.
-// In this example, we are using three different transports
-export const transports = [
-	// Allow the use the console to print the messages
-	new winston.transports.Console({
-		handleExceptions: true,
+const consoleTransportProduction = () => {
+	return new winston.transports.Console({
+		// handleExceptions: true,
 		format: winston.format.combine(
 			winston.format.errors({ stack: true }),
 			winston.format.timestamp({ format: "HH:mm:ss.SSS" }),
-			colorize ? winston.format.colorize({ all: true }) : winston.format.uncolorize(),
-			winston.format.printf(
-				(info) =>
-					`${info.timestamp} ${info.level}\t${info.label ? `[${info.label}] ` : ""}${info.message}${
-						info.stack ? "\r\n" + info.stack : ""
-					}`
-			)
+			winston.format.printf((info) => {
+				return info[Symbol.for("message")];
+			})
 		),
-	}),
-];
+	});
+};
+
+const consoleTransportDevelopment = () => {
+	return new winston.transports.Console({
+		// handleExceptions: true,
+		format: winston.format.combine(
+			winston.format.errors({ stack: true }),
+			winston.format.timestamp({ format: "HH:mm:ss.SSS" }),
+			winston.format.colorize({ all: true }),
+			winston.format.printf((info) => {
+				return `${info.timestamp} ${info.level}\t${info.label ? `[${info.label}] ` : ""}${info.message}${
+					info.stack ? "\r\n" + info.stack : ""
+				}`;
+			})
+		),
+	});
+};
+
+// Define which transports the logger must use to print out messages.
+// In this example, we are using three different transports
+export const transports = [isDevelopment ? consoleTransportDevelopment() : consoleTransportProduction()];
 
 if (process.env.LOG_DESTINATION_DIR) {
 	transports.push(
@@ -107,9 +122,9 @@ logger.generarSubnivel = (nivel, subnivel) => {
 export const winstonMiddleware = expressWinston.logger({
 	transports,
 	level: "http",
-	meta: true, // optional: control whether you want to log the meta data about the request (default to true)
+	meta: isDevelopment, // optional: control whether you want to log the meta data about the request (default to true)
 	expressFormat: true, // Use the default Express/morgan request formatting. Enabling this will override any msg if true. Will only output colors with colorize set to true
-	colorize: true, // Color the text and status code, using the Express/morgan color palette (text: gray, status: default green, 3XX cyan, 4XX yellow, 5XX red).
+	colorize: isDevelopment, // Color the text and status code, using the Express/morgan color palette (text: gray, status: default green, 3XX cyan, 4XX yellow, 5XX red).
 	ignoreRoute: (req, res) => {
 		return req.url === "/health";
 	},

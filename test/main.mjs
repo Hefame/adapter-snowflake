@@ -1,15 +1,26 @@
 import supertest from "supertest";
+import { readFileSync } from "node:fs";
 
 const request = supertest("http://localhost:3000");
 
-describe("POST /template", function () {
-	it('Ejemplo de test unitario', function (done) {
+const datosEjemplo = readFileSync("./test/sampledata.json");
+
+describe("POST /carga", function () {
+	this.timeout(30000); 
+	it("Ejemplo de carga JSON", function (done) {
 		request
-			.post("/template")
-			.send({ prueba: true, random: 22 })
+			.post("/carga")
+			.timeout(30000)
+			.set({
+				"x-database": "HEFAME_PRO",
+				"x-schema": "SH_STAGING",
+				"x-table": "TB_STG_CATALOGOS",
+				"content-type": "application/json",
+			})
+			.send(datosEjemplo.toString('utf-8'))
 			.expect((res) => {
-				if (!(res.body.body.prueba === true)) throw new Error("No se ha devuelto el campo {body: {prueba: true}}");
-				if (!("stock" in res.body)) throw new Error("No se ha devuelto el campo 'stock'");
+				console.log(res.body)
+				if (!(res.body.estado === 'LOADED')) throw new Error("No se ha cargado el fichero");
 			})
 			.expect(200)
 			.end(done);

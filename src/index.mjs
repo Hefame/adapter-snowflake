@@ -8,33 +8,12 @@ const main = async () => {
 	await expressApp({
 		puerto: parseInt(process.env.EXPRESS_PORT, 10) || 3000,
 		parsers: {
-			json: {
+			raw: {
 				activo: true,
-				opciones: { limit: "1mb" },
+				opciones: { inflate: true, limit: process.env.EXPRESS_MAX_BODY_SIZE || "200mb", type: "*/*" },
 			},
 		},
 	});
-
-
-	try {
-		let resultado = await SnowFlake.cargarFichero();
-		logger.debug(resultado);
-	} catch (error) {
-		logger.error(`Error al llamar a SnowFlake: ${error.message}`);
-	}
-
-	/*
-	try {
-		let resultado = await SnowFlake.ejecutarSentencia({
-			sql: `INSERT INTO "HEFAME_PRO"."SH_STAGING"."TB_STG_CATALOGOS" (ID, PRICE, COMPETENCE, DATE) VALUES (:1, :2, :3, :4)`,
-			binds: ["000017", 58.78, "BIDAFARMA", "2023-04-24"],
-		});
-
-		
-		logger.debug(resultado);
-	} catch (error) {
-		logger.error(`Error al llamar a SnowFlake: ${error.message}`);
-	}*/
 };
 
 main().catch((error) => {

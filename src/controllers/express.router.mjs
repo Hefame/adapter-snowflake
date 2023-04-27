@@ -1,7 +1,7 @@
-import template from "./template/index.mjs";
+import carga from "./carga/index.mjs";
 
 const expressRouter = (app) => {
-	app.use("/template", template);
+	app.use("/carga", carga);
 };
 
 export default expressRouter;

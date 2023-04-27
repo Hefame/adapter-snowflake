@@ -1,11 +1,12 @@
-import logger from "../utils/logger.mjs";
-
 // https://github.com/snowflakedb/snowflake-connector-nodejs/issues/365
 import error_aws_v3 from "aws-sdk/lib/maintenance_mode_message.js";
 error_aws_v3.suppress = true;
 //
 
+import logger from "../utils/logger.mjs";
 import snowflake from "snowflake-sdk";
+import crypto from "crypto";
+import { writeFile, unlink } from "node:fs/promises";
 
 const getEntorno = (nombreVariable) => {
 	return process.env[`SNOWFLAKE_${nombreVariable}`];
@@ -45,16 +46,20 @@ class SnowFlake {
 
 	static async ejecutarSentencia({ sql, binds }) {
 		return new Promise(async (resolve, reject) => {
+			const _inicio = Date.now();
 			try {
 				const connection = await SnowFlake.#getConnection();
+
 				connection.execute({
 					sqlText: sql,
 					binds: binds || [],
 					complete: (error, stmt, rows) => {
+						const _fin = Date.now();
 						if (error) {
-							log(`La ejecución falló: ${error.message}`);
+							log(`Error - ${_fin - _inicio}ms - ${sql} - ${error.message}`);
 							reject(error);
 						} else {
+							log(`Completada - ${_fin - _inicio}ms - ${sql}`);
 							resolve(rows);
 						}
 					},
@@ -65,115 +70,85 @@ class SnowFlake {
 		});
 	}
 
-	static async cargarFichero() {
-
-		logger.debug(
-			await SnowFlake.ejecutarSentencia({
-				sql: "TRUNCATE TABLE HEFAME_PRO.SH_STAGING.TB_STG_CATALOGOS",
-			})
-		);
-
-		logger.debug(
-			await SnowFlake.ejecutarSentencia({
-				sql: "LIST @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS",
-			})
-		);
-
-		logger.debug(
-			await SnowFlake.ejecutarSentencia({
-				sql: `PUT file://./sampledata.json @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS
-						AUTO_COMPRESS = TRUE
-						OVERWRITE = TRUE`,
-			})
-		);
-
-		logger.debug(
-			await SnowFlake.ejecutarSentencia({
-				sql: "LIST @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS",
-			})
-		);
-
-		logger.debug(
-			await SnowFlake.ejecutarSentencia({
-				sql: `COPY INTO HEFAME_PRO.SH_STAGING.TB_STG_CATALOGOS 
-						FROM @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS/sampledata.json.gz 
-						FILE_FORMAT = ( TYPE = 'JSON' STRIP_OUTER_ARRAY = TRUE ) 
-						MATCH_BY_COLUMN_NAME = 'CASE_INSENSITIVE' 
-						PURGE = TRUE`,
-			})
-		);
-
-		logger.debug(
-			await SnowFlake.ejecutarSentencia({
-				sql: "LIST @HEFAME_PRO.SH_STAGING.%TB_STG_CATALOGOS",
-			})
-		);
-
-
-		return null;
+	static async generarNombreFicheroTemporal() {
+		return new Promise((resolve) => {
+			crypto.randomBytes(12, function (error, buffer) {
+				resolve(`${buffer.toString("hex")}`);
+			});
+		});
 	}
 
-	/*
-	static async initializeTable(options) {
-		const { recreate } = options;
+	static async cargar(database, schema, table, buffer, options = {}) {
+		let tabla = `${database}.${schema}.${table}`;
+		let nombreTemporal = await SnowFlake.generarNombreFicheroTemporal();
+		let stage = `${database}.${schema}.json_stage_${nombreTemporal}`.toUpperCase();
 
-		let sql = `
-            CREATE ${recreate ? "OR REPLACE TABLE" : "TABLE IF NOT EXISTS"} "DB_HEFAME_EDWH_PRO"."CONSULTAS_STOCK"."FEDICOM2" (
-              id BIGINT identity(1,1) not null,
-              fecha BIGINT NOT NULL,
-              cliente VARCHAR(10) NOT NULL,
-              material VARCHAR(18) NOT NULL,
-              centroHabitual VARCHAR(4),
-              centroSuministro VARCHAR(4),
-              motivoFalta VARCHAR(40),
-              limiteLab BOOLEAN,
-              pva INT,
-              pvp INT,
-              iva TINYINT,
-              almacenes VARCHAR(20)
-            );
-          `;
+		try {
+			let resultado = {
+				destino: {
+					basedatos: database,
+					esquema: schema,
+					tabla: table,
+				},
+			};
+			await writeFile(nombreTemporal, buffer);
+			logger.trace(`Escribiendo buffer temporalmente en: ${nombreTemporal} (${buffer.length} bytes)`);
 
-		await SnowFlake.#executeStmt({ query: sql, binds: [] });
-	}
+			logger.debug(
+				await SnowFlake.ejecutarSentencia({
+					sql: `CREATE TEMPORARY STAGE IF NOT EXISTS ${stage} FILE_FORMAT = ( TYPE = JSON STRIP_OUTER_ARRAY = TRUE )`,
+				})
+			);
 
-	static async insert(payloads) {
-		if (!Array.isArray(payloads)) {
-			payloads = [payloads];
+			let _inicio = Date.now();
+			let resultadoCarga = await SnowFlake.ejecutarSentencia({
+				sql: `PUT file://${nombreTemporal} @${stage} AUTO_COMPRESS = TRUE OVERWRITE = TRUE`,
+			});
+			logger.trace("Resultado de carga del fichero:");
+			logger.trace(resultadoCarga[0]);
+
+			resultado = {
+				...resultado,
+				transferencia: {
+					bytes: resultadoCarga[0].sourceSize,
+					estadoTransferencia: resultadoCarga[0].status,
+					milisegundos: Date.now() - _inicio,
+				},
+			};
+
+			_inicio = Date.now();
+			let resultadoCopia = await SnowFlake.ejecutarSentencia({
+				sql: `COPY INTO ${tabla} FROM @${stage}/${nombreTemporal} FILE_FORMAT = ( TYPE = JSON STRIP_OUTER_ARRAY = TRUE ) MATCH_BY_COLUMN_NAME = 'CASE_INSENSITIVE' PURGE = TRUE ON_ERROR = 'CONTINUE'`,
+			});
+			logger.trace("Resultado de carga en tabla:");
+			logger.trace(resultadoCopia[0]);
+
+			resultado = {
+				...resultado,
+				estado: resultadoCopia[0].status,
+				lineasAnalizadas: resultadoCopia[0].rows_parsed,
+				lineasCargadas: resultadoCopia[0].rows_loaded,
+				milisegundos: Date.now() - _inicio,
+			};
+
+			if (resultadoCopia[0].errors_seen) {
+				resultado = {
+					...resultado,
+					limiteErrores: resultadoCopia[0].error_limit,
+					numeroErrores: resultadoCopia[0].errors_seen,
+					error: resultadoCopia[0].first_error,
+					lineaError: resultadoCopia[0].first_error_line,
+					caracterError: resultadoCopia[0].first_error_character,
+					nombreColumnaError: resultadoCopia[0].first_error_column_name,
+				};
+			}
+
+			return resultado;
+		} finally {
+			logger.trace("Realizando limpieza");
+			unlink(nombreTemporal).catch((e) => logger.warn(e));
+			SnowFlake.ejecutarSentencia({ sql: `DROP STAGE IF EXISTS ${stage}` }).catch((e) => {});
 		}
-
-		let i = 1;
-		let valueList = [];
-		let stringList = [];
-
-		payloads.forEach((payload) => {
-			stringList.push(`(:${i++},:${i++},:${i++},:${i++},:${i++},:${i++},:${i++},:${i++},:${i++},:${i++},:${i++})`);
-
-			valueList.push(payload.query.fecha.getTime());
-			valueList.push(payload.query.cliente);
-			valueList.push(payload.result.codigoArticulo || "000000");
-			valueList.push(payload.result.centroHabitual);
-			valueList.push(payload.result.centroSuministro);
-			valueList.push(payload.result.motivoFalta || null);
-			valueList.push(Boolean(payload.result.limitadoLaboratorio));
-			valueList.push(parseInt(payload.result.pva * 100) || 0);
-			valueList.push(parseInt(payload.result.pvp * 100) || 0);
-			valueList.push(parseInt(payload.result.iva) || 0);
-			valueList.push(payload.result.almacenes.join(","));
-		});
-
-		const query = `INSERT INTO "DB_HEFAME_EDWH_PRO"."CONSULTAS_STOCK"."FEDICOM2" (fecha, cliente, material, centroHabitual, centroSuministro, motivoFalta, limiteLab, pva, pvp, iva, almacenes) VALUES ${stringList.join(
-			", "
-		)}`;
-		const queryValues = valueList;
-
-		const result = await SnowFlake.#executeStmt({
-			query,
-			binds: queryValues,
-		});
-
-		return result;
 	}
-    */
 }
 export default SnowFlake;
