@@ -6,7 +6,7 @@ WORKDIR /usr/local/app
 
 COPY package.json ./
 COPY yarn.lock ./
-RUN yarn install
+RUN yarn install --production
 
 
 # Bundle app source
