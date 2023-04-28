@@ -44,6 +44,11 @@ class SnowFlake {
 		});
 	}
 
+	static async #resetConnection() {
+		SnowFlake.#conexion = null;
+		return await SnowFlake.#getConnection();
+	}
+
 	static async ejecutarSentencia({ sql, binds }) {
 		return new Promise(async (resolve, reject) => {
 			const _inicio = Date.now();
@@ -144,9 +149,16 @@ class SnowFlake {
 			}
 
 			return resultado;
+		} catch (error) {
+			if (error.code === 407002 && !options.noReintentar) {
+				log("La sesión ha sido cerrada por el servidor");
+				await SnowFlake.#resetConnection() 
+				return SnowFlake.cargar(database, schema, table, buffer, { ...options, noReintentar: true });
+			}
+			throw error;
 		} finally {
 			logger.trace("Realizando limpieza");
-			unlink(nombreTemporal).catch((e) => logger.warn(e));
+			unlink(nombreTemporal).catch((e) => logger.warn(e.message));
 			SnowFlake.ejecutarSentencia({ sql: `DROP STAGE IF EXISTS ${stage}` }).catch((e) => {});
 		}
 	}
