@@ -56,7 +56,7 @@ const expressApp = async (opciones) => {
 		let httpServer = app.listen(puerto);
 
 		httpServer.on("error", (errorServidorHTTP) => {
-			Log.fatal("Ocurrió un error en el servicio Express", errorServidorHTTP);
+			logger.fatal("Ocurrió un error en el servicio Express", errorServidorHTTP);
 			process.exit(1);
 		});
 		httpServer.on("listening", () => {
