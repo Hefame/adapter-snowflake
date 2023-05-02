@@ -1,7 +1,7 @@
 import supertest from "supertest";
 import { readFileSync } from "node:fs";
 
-const request = supertest("http://localhost:3000");
+const request = supertest("http://34.175.113.56");
 
 const datosEjemploJson = readFileSync("./test/sampledata.json");
 const datosEjemploCsv = readFileSync("./test/sampledata.csv");
@@ -14,7 +14,7 @@ describe("POST /carga", function () {
 			.post("/carga")
 			.timeout(30000)
 			.set({
-				"x-database": "HEFAME_PRO",
+				"x-database": "HEFAME_TEST",
 				"x-schema": "SH_STAGING",
 				"x-table": "TB_STG_CATALOGOS",
 				"content-type": "application/json",
@@ -32,7 +32,7 @@ describe("POST /carga", function () {
 			.post("/carga")
 			.timeout(30000)
 			.set({
-				"x-database": "HEFAME_PRO",
+				"x-database": "HEFAME_TEST",
 				"x-schema": "SH_STAGING",
 				"x-table": "TB_STG_FARMACIAS_TAM",
 				"content-type": "text/csv",
@@ -50,7 +50,7 @@ describe("POST /carga", function () {
 			.post("/carga")
 			.timeout(30000)
 			.set({
-				"x-database": "HEFAME_PRO",
+				"x-database": "HEFAME_TEST",
 				"x-schema": "SH_STAGING",
 				"x-table": "TB_STG_FARMACIAS",
 				"content-type": "text/csv",
