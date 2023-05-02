@@ -83,10 +83,29 @@ class SnowFlake {
 		});
 	}
 
+	static #sfFileFormat( tipoDatos ) {
+		switch(tipoDatos) {
+			case 'json' :
+				return `FILE_FORMAT = ( TYPE = JSON STRIP_OUTER_ARRAY = TRUE )`
+			case 'csv':
+				return `FILE_FORMAT = ( TYPE = CSV FIELD_DELIMITER  = ';' SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"')`
+		}
+	}
+
+	static #sfCopyParams( tipoDatos ) {
+		switch(tipoDatos) {
+			case 'json' :
+				return `MATCH_BY_COLUMN_NAME = 'CASE_INSENSITIVE'`
+			case 'csv':
+				return ``
+		}
+	}
+
 	static async cargar(database, schema, table, buffer, options = {}) {
+		let { tipoDatos } = options;
 		let tabla = `${database}.${schema}.${table}`;
 		let nombreTemporal = await SnowFlake.generarNombreFicheroTemporal();
-		let stage = `${database}.${schema}.json_stage_${nombreTemporal}`.toUpperCase();
+		let stage = `${database}.${schema}.${tipoDatos}_stage_${nombreTemporal}`.toUpperCase();
 
 		try {
 			let resultado = {
@@ -101,7 +120,7 @@ class SnowFlake {
 
 			logger.debug(
 				await SnowFlake.ejecutarSentencia({
-					sql: `CREATE TEMPORARY STAGE IF NOT EXISTS ${stage} FILE_FORMAT = ( TYPE = JSON STRIP_OUTER_ARRAY = TRUE )`,
+					sql: `CREATE TEMPORARY STAGE IF NOT EXISTS ${stage} ${SnowFlake.#sfFileFormat(tipoDatos)}`,
 				})
 			);
 
@@ -123,7 +142,7 @@ class SnowFlake {
 
 			_inicio = Date.now();
 			let resultadoCopia = await SnowFlake.ejecutarSentencia({
-				sql: `COPY INTO ${tabla} FROM @${stage}/${nombreTemporal} FILE_FORMAT = ( TYPE = JSON STRIP_OUTER_ARRAY = TRUE ) MATCH_BY_COLUMN_NAME = 'CASE_INSENSITIVE' PURGE = TRUE ON_ERROR = 'CONTINUE'`,
+				sql: `COPY INTO ${tabla} FROM @${stage}/${nombreTemporal} ${SnowFlake.#sfFileFormat(tipoDatos)} ${SnowFlake.#sfCopyParams(tipoDatos)} PURGE = TRUE ON_ERROR = 'CONTINUE'`,
 			});
 			logger.trace("Resultado de carga en tabla:");
 			logger.trace(resultadoCopia[0]);
@@ -152,7 +171,7 @@ class SnowFlake {
 		} catch (error) {
 			if (error.code === 407002 && !options.noReintentar) {
 				log("La sesión ha sido cerrada por el servidor");
-				await SnowFlake.#resetConnection() 
+				await SnowFlake.#resetConnection();
 				return SnowFlake.cargar(database, schema, table, buffer, { ...options, noReintentar: true });
 			}
 			throw error;

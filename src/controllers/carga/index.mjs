@@ -4,18 +4,34 @@ import HError from "../../model/HError.mjs";
 import SnowFlake from "../../backends/SnowFlake.mjs";
 const router = express.Router({ mergeParams: true });
 
+const tipoMime = (ctype) => {
+	if (!ctype) return null;
+
+	switch (ctype.toLowerCase()) {
+		case "application/json":
+			return "json";
+		case "text/csv":
+			return "csv";
+		default:
+			return null;
+	}
+};
+
 // POST /carga
 router.post("/", async (req, res) => {
-	
 	try {
 		let sf_database = req.headers["x-database"];
 		let sf_schema = req.headers["x-schema"];
 		let sf_table = req.headers["x-table"];
-		let type = req.headers["content-type"];
+		let tipoDatos = tipoMime(req.headers["content-type"]);
 
-		logger.info(`Petición de carga de datos SnowFlake: ${sf_database}.${sf_schema}.${sf_table}`);
+		if (!tipoDatos) {
+			throw new HError(400, `No se soporta el formato ${req.headers["content-type"]}`);
+		}
 
-		let resultado = await SnowFlake.cargar(sf_database, sf_schema, sf_table, req.body, { type });
+		logger.info(`Petición de carga de datos [${tipoDatos}]: ${sf_database}.${sf_schema}.${sf_table}`);
+
+		let resultado = await SnowFlake.cargar(sf_database, sf_schema, sf_table, req.body, { tipoDatos });
 
 		logger.info(resultado);
 
