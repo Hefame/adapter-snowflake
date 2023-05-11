@@ -5,9 +5,12 @@ import SnowFlake from "../../backends/SnowFlake.mjs";
 const router = express.Router({ mergeParams: true });
 
 const tipoMime = (ctype) => {
-	if (!ctype) return null;
 
-	switch (ctype.toLowerCase()) {
+	if (!ctype) return null;
+	let tipoSaneado = ctype.split(';')?.[0];
+	if (!tipoSaneado) return null;
+
+	switch (tipoSaneado.toLowerCase()) {
 		case "application/json":
 			return "json";
 		case "text/csv":
