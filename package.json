@@ -1,17 +1,17 @@
 {
   "name": "adapter-snowflake",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Adaptador de carga de datos en SnowFlake",
   "main": "src/index.mjs",
   "module": "src/index.mjs",
   "author": "alejandro.abad@hefame.es",
   "license": "MIT",
+  "dockerRegistry": "europe-southwest1-docker.pkg.dev/microservicios-hefame/docker-registry",
   "scripts": {
     "start": "nodemon --watch src -r dotenv/config src/index.mjs",
     "test": "mocha test/main.mjs",
-    "docker-build": "docker build --pull --rm -f \"Dockerfile\" -t europe-southwest1-docker.pkg.dev/microservicios-hefame/docker-registry/%npm_package_name%:%npm_package_version% \".\"",
-    "docker-push": "docker image push europe-southwest1-docker.pkg.dev/microservicios-hefame/docker-registry/%npm_package_name%:%npm_package_version%"
-
+    "docker-build": "docker build --pull --rm -f \"Dockerfile\" -t %npm_package_dockerRegistry%/%npm_package_name%:%npm_package_version% \".\"",
+    "docker-push": "docker image push %npm_package_dockerRegistry%/%npm_package_name%:%npm_package_version%"
   },
   "dependencies": {
     "express": "^4.18.2",
