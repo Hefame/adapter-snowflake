@@ -43,7 +43,7 @@ router.post("/", async (req, res) => {
 			responseStatusCode = 418
 			logger.warn(resultado);
 		} else {
-		logger.info(resultado);
+			logger.info(resultado);
 		}
 
 		res.status(responseStatusCode).json(resultado);
