@@ -169,8 +169,9 @@ class SnowFlake {
 
 			return resultado;
 		} catch (error) {
-			if (error.code === 407002 && !options.noReintentar) {
-				log("La sesión ha sido cerrada por el servidor");
+			let errorInt = parseInt(error.code, 10);
+			if ([407002, 3048].includes(errorInt) && !options.noReintentar) {
+				log(`La sesión ha sido cerrada por el servidor con error ${error.code}: ${error.message}`);
 				await SnowFlake.#resetConnection();
 				return SnowFlake.cargar(database, schema, table, buffer, { ...options, noReintentar: true });
 			}
