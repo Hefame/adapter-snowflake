@@ -83,21 +83,21 @@ class SnowFlake {
 		});
 	}
 
-	static #sfFileFormat( tipoDatos ) {
-		switch(tipoDatos) {
-			case 'json' :
-				return `FILE_FORMAT = ( TYPE = JSON STRIP_OUTER_ARRAY = TRUE )`
-			case 'csv':
-				return `FILE_FORMAT = ( TYPE = CSV FIELD_DELIMITER  = ';' SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"')`
+	static #sfFileFormat(tipoDatos) {
+		switch (tipoDatos) {
+			case "json":
+				return `FILE_FORMAT = ( TYPE = JSON STRIP_OUTER_ARRAY = TRUE )`;
+			case "csv":
+				return `FILE_FORMAT = ( TYPE = CSV FIELD_DELIMITER  = ';' SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"')`;
 		}
 	}
 
-	static #sfCopyParams( tipoDatos ) {
-		switch(tipoDatos) {
-			case 'json' :
-				return `MATCH_BY_COLUMN_NAME = 'CASE_INSENSITIVE'`
-			case 'csv':
-				return ``
+	static #sfCopyParams(tipoDatos) {
+		switch (tipoDatos) {
+			case "json":
+				return `MATCH_BY_COLUMN_NAME = 'CASE_INSENSITIVE'`;
+			case "csv":
+				return ``;
 		}
 	}
 
@@ -142,7 +142,9 @@ class SnowFlake {
 
 			_inicio = Date.now();
 			let resultadoCopia = await SnowFlake.ejecutarSentencia({
-				sql: `COPY INTO ${tabla} FROM @${stage}/${nombreTemporal} ${SnowFlake.#sfFileFormat(tipoDatos)} ${SnowFlake.#sfCopyParams(tipoDatos)} PURGE = TRUE ON_ERROR = 'CONTINUE'`,
+				sql: `COPY INTO ${tabla} FROM @${stage}/${nombreTemporal} ${SnowFlake.#sfFileFormat(tipoDatos)} ${SnowFlake.#sfCopyParams(
+					tipoDatos
+				)} PURGE = TRUE ON_ERROR = 'CONTINUE'`,
 			});
 			logger.trace("Resultado de carga en tabla:");
 			logger.trace(resultadoCopia[0]);
