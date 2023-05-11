@@ -36,9 +36,17 @@ router.post("/", async (req, res) => {
 
 		let resultado = await SnowFlake.cargar(sf_database, sf_schema, sf_table, req.body, { tipoDatos });
 
-		logger.info(resultado);
 
-		res.json(resultado);
+		
+		let responseStatusCode = 200;
+		if (resultado.errors_seen > 0) {
+			responseStatusCode = 418
+			logger.warn(resultado);
+		} else {
+		logger.info(resultado);
+		}
+
+		res.status(responseStatusCode).json(resultado);
 	} catch (error) {
 		const herror = HError.from(error);
 		logger.error(`Error durante la operación:`, error);
