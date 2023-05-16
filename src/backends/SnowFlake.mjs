@@ -175,13 +175,15 @@ class SnowFlake {
 			if ([407002, 3048].includes(errorInt) && !options.noReintentar) {
 				log(`La sesión ha sido cerrada por el servidor con error ${error.code}: ${error.message}`);
 				await SnowFlake.#resetConnection();
-				return SnowFlake.cargar(database, schema, table, buffer, { ...options, noReintentar: true });
+				return await SnowFlake.cargar(database, schema, table, buffer, { ...options, noReintentar: true });
 			}
 			throw error;
 		} finally {
 			logger.trace("Realizando limpieza");
 			unlink(nombreTemporal).catch((e) => logger.warn(e.message));
-			SnowFlake.ejecutarSentencia({ sql: `DROP STAGE IF EXISTS ${stage}` }).catch((e) => {});
+			SnowFlake.ejecutarSentencia({ sql: `DROP STAGE IF EXISTS ${stage}` }).catch((e) => {
+
+			});
 		}
 	}
 }
