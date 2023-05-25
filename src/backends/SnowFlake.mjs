@@ -83,12 +83,14 @@ class SnowFlake {
 		});
 	}
 
-	static #sfFileFormat(tipoDatos) {
+	static #sfFileFormat(tipoDatos, opciones = {}) {
 		switch (tipoDatos) {
 			case "json":
 				return `FILE_FORMAT = ( TYPE = JSON STRIP_OUTER_ARRAY = TRUE )`;
 			case "csv":
-				return `FILE_FORMAT = ( TYPE = CSV FIELD_DELIMITER  = ';' SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"')`;
+				const delimiter = opciones.delimiter || ";";
+				const tieneCabecera = opciones.hasHeader || "1";
+				return `FILE_FORMAT = ( TYPE = CSV FIELD_DELIMITER  = '${delimiter}' SKIP_HEADER = ${tieneCabecera} FIELD_OPTIONALLY_ENCLOSED_BY = '"')`;
 		}
 	}
 
@@ -102,7 +104,7 @@ class SnowFlake {
 	}
 
 	static async cargar(database, schema, table, buffer, options = {}) {
-		let { tipoDatos } = options;
+		let { tipoDatos, delimiter, hasHeader } = options;
 		let tabla = `${database}.${schema}.${table}`;
 		let nombreTemporal = await SnowFlake.generarNombreFicheroTemporal();
 		let stage = `${database}.${schema}.${tipoDatos}_stage_${nombreTemporal}`.toUpperCase();
@@ -120,7 +122,7 @@ class SnowFlake {
 
 			logger.debug(
 				await SnowFlake.ejecutarSentencia({
-					sql: `CREATE TEMPORARY STAGE IF NOT EXISTS ${stage} ${SnowFlake.#sfFileFormat(tipoDatos)}`,
+					sql: `CREATE TEMPORARY STAGE IF NOT EXISTS ${stage} ${SnowFlake.#sfFileFormat(tipoDatos, { delimiter, hasHeader })}`,
 				})
 			);
 
@@ -142,9 +144,10 @@ class SnowFlake {
 
 			_inicio = Date.now();
 			let resultadoCopia = await SnowFlake.ejecutarSentencia({
-				sql: `COPY INTO ${tabla} FROM @${stage}/${nombreTemporal} ${SnowFlake.#sfFileFormat(tipoDatos)} ${SnowFlake.#sfCopyParams(
-					tipoDatos
-				)} PURGE = TRUE ON_ERROR = 'CONTINUE'`,
+				sql: `COPY INTO ${tabla} FROM @${stage}/${nombreTemporal} ${SnowFlake.#sfFileFormat(tipoDatos, {
+					delimiter,
+					hasHeader,
+				})} ${SnowFlake.#sfCopyParams(tipoDatos)} PURGE = TRUE ON_ERROR = 'CONTINUE'`,
 			});
 			logger.trace("Resultado de carga en tabla:");
 			logger.trace(resultadoCopia[0]);
@@ -181,9 +184,7 @@ class SnowFlake {
 		} finally {
 			logger.trace("Realizando limpieza");
 			unlink(nombreTemporal).catch((e) => logger.warn(e.message));
-			SnowFlake.ejecutarSentencia({ sql: `DROP STAGE IF EXISTS ${stage}` }).catch((e) => {
-
-			});
+			SnowFlake.ejecutarSentencia({ sql: `DROP STAGE IF EXISTS ${stage}` }).catch((e) => {});
 		}
 	}
 }

@@ -5,9 +5,8 @@ import SnowFlake from "../../backends/SnowFlake.mjs";
 const router = express.Router({ mergeParams: true });
 
 const tipoMime = (ctype) => {
-
 	if (!ctype) return null;
-	let tipoSaneado = ctype.split(';')?.[0];
+	let tipoSaneado = ctype.split(";")?.[0];
 	if (!tipoSaneado) return null;
 
 	switch (tipoSaneado.toLowerCase()) {
@@ -26,6 +25,8 @@ router.post("/", async (req, res) => {
 		let sf_database = req.headers["x-database"];
 		let sf_schema = req.headers["x-schema"];
 		let sf_table = req.headers["x-table"];
+		let delimiter = req.headers["x-delimiter"] || ';';
+		let hasHeader = req.headers["x-has-header"] || '1';
 		let tipoDatos = tipoMime(req.headers["content-type"]);
 
 		if (!tipoDatos) {
@@ -34,13 +35,11 @@ router.post("/", async (req, res) => {
 
 		logger.info(`Petición de carga de datos [${tipoDatos}]: ${sf_database}.${sf_schema}.${sf_table}`);
 
-		let resultado = await SnowFlake.cargar(sf_database, sf_schema, sf_table, req.body, { tipoDatos });
+		let resultado = await SnowFlake.cargar(sf_database, sf_schema, sf_table, req.body, { tipoDatos, delimiter, hasHeader });
 
-
-		
 		let responseStatusCode = 200;
 		if (resultado.numeroErrores > 0) {
-			responseStatusCode = 418
+			responseStatusCode = 418;
 			logger.warn(resultado);
 		} else {
 			logger.info(resultado);
