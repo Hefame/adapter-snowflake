@@ -6,7 +6,7 @@
   "module": "src/index.mjs",
   "author": "alejandro.abad@hefame.es",
   "license": "MIT",
-  "dockerRegistry": "europe-southwest1-docker.pkg.dev/microservicios-hefame/docker-registry",
+  "dockerRegistry": "europe-docker.pkg.dev/microservices-hefame/jslegacy",
   "scripts": {
     "start": "nodemon --watch src -r dotenv/config src/index.mjs",
     "test": "mocha test/main.mjs",
